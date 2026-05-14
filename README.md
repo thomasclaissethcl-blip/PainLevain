@@ -1,12 +1,12 @@
 # Routine levain et pain low FODMAP
 
-Cette web app est une première version autonome, sans dépendance externe, pensée pour GitHub Pages et pour une installation sur smartphone.
+Cette web app est une version autonome, sans dépendance externe, pensée pour GitHub Pages et pour une installation sur smartphone.
 
 ## Contenu
 
 - `index.html` : structure de l’application.
 - `styles.css` : styles responsive, mode clair et mode sombre.
-- `app.js` : timeline, guides, checklists, calculs, stockage et import export.
+- `app.js` : timeline, guides, checklists, calculs, journal, stockage et import export.
 - `manifest.webmanifest` : configuration PWA.
 - `sw.js` : mode hors ligne par cache local.
 - `icons/` : icônes nécessaires à l’installation.
@@ -19,7 +19,9 @@ Cette web app est une première version autonome, sans dépendance externe, pens
 - Planning recalculé selon le jour, l’heure, la température et le type de routine.
 - Saisie des heures prévues, de début réel et de fin réelle.
 - Propagation simple vers l’étape suivante après validation.
-- Journal global pour observations et tolérance.
+- Journal structuré avec notes modifiables, supprimables et épinglables.
+- Accès aux paramètres de semaine et à la mémoire locale via boutons icônes ouvrant des modales.
+- Bouton de réinitialisation placé en bas de timeline, avec signal visuel de danger.
 - Stockage local dans IndexedDB, avec repli localStorage.
 - Demande de persistance renforcée via l’API Storage Manager quand elle est disponible.
 - Export et import JSON pour sauvegarde manuelle.

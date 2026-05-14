@@ -259,6 +259,7 @@ const defaultState = {
   },
   stepState: {},
   notes: "",
+  journalNotes: [],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()
 };
@@ -266,6 +267,7 @@ const defaultState = {
 let db = null;
 let state = structuredClone(defaultState);
 let currentStepId = null;
+let editingNoteId = null;
 let deferredInstallPrompt = null;
 
 const $ = (selector) => document.querySelector(selector);
@@ -273,6 +275,11 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
 function clone(obj) {
   return JSON.parse(JSON.stringify(obj));
+}
+
+function createNoteId() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `note-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function openDb() {
@@ -342,6 +349,12 @@ function mergeState(saved) {
   merged.settings = { ...defaultState.settings, ...(saved.settings || {}) };
   merged.stepState = saved.stepState || {};
   merged.notes = saved.notes || "";
+  const legacyNotes = typeof saved.notes === "string" ? saved.notes.trim() : "";
+  merged.journalNotes = Array.isArray(saved.journalNotes)
+    ? saved.journalNotes.map(normalizeNote).filter(Boolean)
+    : legacyNotes
+      ? [{ id: createNoteId(), content: legacyNotes, pinned: false, createdAt: saved.updatedAt || new Date().toISOString(), updatedAt: saved.updatedAt || new Date().toISOString() }]
+      : [];
   merged.createdAt = saved.createdAt || new Date().toISOString();
   merged.updatedAt = saved.updatedAt || new Date().toISOString();
   return merged;
@@ -477,7 +490,8 @@ function renderAll() {
   renderSummary();
   renderCalculators();
   renderStorageStatus();
-  $("#globalNotes").value = state.notes || "";
+  renderQuickTiles();
+  renderNotes();
 }
 
 function applyTheme() {
@@ -631,14 +645,31 @@ function renderStorageStatus() {
   if ("indexedDB" in window) details.push("IndexedDB actif");
   else details.push("IndexedDB indisponible");
   if ("serviceWorker" in navigator) details.push("mode hors ligne possible");
+  const updated = new Date(state.updatedAt).toLocaleString("fr-FR");
+  const apply = (status) => {
+    const statusText = status ? "Persistance renforcée" : "Persistance standard";
+    $("#storageStatus").textContent = statusText;
+    $("#storageDetails").textContent = `${details.join(", ")}. Dernière sauvegarde : ${updated}.`;
+    const tile = $("#storageTileStatus");
+    if (tile) tile.textContent = `${statusText}. Sauvegarde : ${updated}`;
+  };
   if (navigator.storage?.persisted) {
-    navigator.storage.persisted().then((persisted) => {
-      $("#storageStatus").textContent = persisted ? "Persistance renforcée" : "Persistance standard";
-      $("#storageDetails").textContent = `${details.join(", ")}. Dernière sauvegarde : ${new Date(state.updatedAt).toLocaleString("fr-FR")}.`;
-    });
+    navigator.storage.persisted().then(apply);
   } else {
-    $("#storageStatus").textContent = "Stockage local";
-    $("#storageDetails").textContent = `${details.join(", ")}. Dernière sauvegarde : ${new Date(state.updatedAt).toLocaleString("fr-FR")}.`;
+    apply(false);
+  }
+}
+
+function renderQuickTiles() {
+  const routineLabels = {
+    "saturday-evening": "Cuisson samedi soir",
+    "sunday-morning": "Cuisson dimanche matin",
+    manual: "Planning libre"
+  };
+  const day = dayLabels[Number(state.settings.targetDay)] || "jour à définir";
+  const settingsTile = $("#settingsTileStatus");
+  if (settingsTile) {
+    settingsTile.textContent = `${routineLabels[state.settings.routineMode] || "Routine"}. ${day} à ${state.settings.targetTime}`;
   }
 }
 
@@ -897,8 +928,139 @@ async function importState(file) {
   showToast("Données importées.");
 }
 
+
+function normalizeNote(note) {
+  if (!note || typeof note.content !== "string") return null;
+  return {
+    id: note.id || createNoteId(),
+    content: note.content,
+    pinned: Boolean(note.pinned),
+    createdAt: note.createdAt || new Date().toISOString(),
+    updatedAt: note.updatedAt || note.createdAt || new Date().toISOString()
+  };
+}
+
+function getSortedNotes() {
+  return [...(state.journalNotes || [])].sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+}
+
+function formatNoteDate(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Date inconnue";
+  return date.toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function renderNotes() {
+  const list = $("#notesList");
+  if (!list) return;
+  const notes = getSortedNotes();
+  if (!notes.length) {
+    list.innerHTML = `<div class="empty-state">Aucune note pour l’instant. Ajoutez une observation sur le levain, la pâte, la cuisson ou la tolérance digestive.</div>`;
+    return;
+  }
+  list.innerHTML = notes.map((note) => {
+    const pinnedLabel = note.pinned ? "Épinglée" : "Non épinglée";
+    if (editingNoteId === note.id) {
+      return `
+        <article class="note-card note-edit ${note.pinned ? "pinned" : ""}" data-note-id="${escapeHtml(note.id)}">
+          <div class="note-meta"><span>${pinnedLabel}</span><span>Modifiée le ${formatNoteDate(note.updatedAt)}</span></div>
+          <textarea rows="5" data-edit-note="${escapeHtml(note.id)}">${escapeHtml(note.content)}</textarea>
+          <div class="note-actions">
+            <button class="btn btn-primary" type="button" data-note-action="save-edit" data-note-id="${escapeHtml(note.id)}">Enregistrer</button>
+            <button class="btn btn-ghost" type="button" data-note-action="cancel-edit" data-note-id="${escapeHtml(note.id)}">Annuler</button>
+          </div>
+        </article>
+      `;
+    }
+    return `
+      <article class="note-card ${note.pinned ? "pinned" : ""}" data-note-id="${escapeHtml(note.id)}">
+        <div class="note-meta"><span>${pinnedLabel}</span><span>Modifiée le ${formatNoteDate(note.updatedAt)}</span></div>
+        <div class="note-content">${escapeHtml(note.content)}</div>
+        <div class="note-actions">
+          <button class="btn btn-secondary btn-small" type="button" data-note-action="pin" data-note-id="${escapeHtml(note.id)}">${note.pinned ? "Désépingler" : "Épingler"}</button>
+          <button class="btn btn-secondary btn-small" type="button" data-note-action="edit" data-note-id="${escapeHtml(note.id)}">Modifier</button>
+          <button class="btn btn-ghost btn-small" type="button" data-note-action="delete" data-note-id="${escapeHtml(note.id)}">Supprimer</button>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+async function addJournalNote() {
+  const textarea = $("#newNoteText");
+  const content = textarea.value.trim();
+  if (!content) {
+    showToast("Note vide non ajoutée.");
+    return;
+  }
+  const now = new Date().toISOString();
+  state.journalNotes.unshift({ id: createNoteId(), content, pinned: false, createdAt: now, updatedAt: now });
+  textarea.value = "";
+  await saveState();
+  renderNotes();
+  showToast("Note ajoutée.");
+}
+
+async function handleNoteAction(event) {
+  const button = event.target.closest("[data-note-action]");
+  if (!button) return;
+  const id = button.dataset.noteId;
+  const action = button.dataset.noteAction;
+  const note = state.journalNotes.find((item) => item.id === id);
+  if (!note && action !== "cancel-edit") return;
+
+  if (action === "pin") {
+    note.pinned = !note.pinned;
+    note.updatedAt = new Date().toISOString();
+    await saveState();
+    renderNotes();
+    showToast(note.pinned ? "Note épinglée." : "Note désépinglée.");
+    return;
+  }
+
+  if (action === "edit") {
+    editingNoteId = id;
+    renderNotes();
+    return;
+  }
+
+  if (action === "cancel-edit") {
+    editingNoteId = null;
+    renderNotes();
+    return;
+  }
+
+  if (action === "save-edit") {
+    const textarea = document.querySelector(`[data-edit-note="${id}"]`);
+    const content = textarea?.value.trim() || "";
+    if (!content) {
+      showToast("Une note vide ne peut pas être enregistrée.");
+      return;
+    }
+    note.content = content;
+    note.updatedAt = new Date().toISOString();
+    editingNoteId = null;
+    await saveState();
+    renderNotes();
+    showToast("Note modifiée.");
+    return;
+  }
+
+  if (action === "delete") {
+    if (!confirm("Supprimer cette note ?")) return;
+    state.journalNotes = state.journalNotes.filter((item) => item.id !== id);
+    if (editingNoteId === id) editingNoteId = null;
+    await saveState();
+    renderNotes();
+    showToast("Note supprimée.");
+  }
+}
+
 async function clearWeek() {
-  if (!confirm("Réinitialiser les étapes cochées et les heures de cette semaine ? Les notes globales sont conservées.")) return;
+  if (!confirm("Réinitialiser les étapes cochées et les heures de cette semaine ? Les notes du journal sont conservées.")) return;
   state.stepState = {};
   await saveState();
   renderAll();
@@ -916,6 +1078,7 @@ function bindEvents() {
     readSettingsForm();
     await saveState();
     renderAll();
+    $("#settingsModal").close();
     showToast("Planning recalculé.");
   });
 
@@ -924,16 +1087,14 @@ function bindEvents() {
     showToast("Synthèse recalculée.");
   });
 
+  $("#openStorageBtn").addEventListener("click", () => $("#storageModal").showModal());
+  $("#openSettingsBtn").addEventListener("click", () => $("#settingsModal").showModal());
   $("#clearWeekBtn").addEventListener("click", clearWeek);
   $("#persistBtn").addEventListener("click", requestPersistence);
   $("#exportBtn").addEventListener("click", exportState);
   $("#importFile").addEventListener("change", (event) => importState(event.target.files[0]).catch(() => showToast("Import impossible.")));
-
-  $("#saveNotesBtn").addEventListener("click", async () => {
-    state.notes = $("#globalNotes").value;
-    await saveState();
-    showToast("Notes enregistrées.");
-  });
+  $("#addNoteBtn").addEventListener("click", addJournalNote);
+  $("#notesList").addEventListener("click", (event) => handleNoteAction(event));
 
   ["#feedSeed", "#feedRatio", "#buildTarget", "#buildRatio"].forEach((selector) => {
     $(selector).addEventListener("input", renderCalculators);

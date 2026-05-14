@@ -620,3 +620,185 @@ body.dark .tab.active {
     width: 100%;
   }
 }
+
+/* Version 2 : accès rapides, modales de réglages et journal structuré */
+.hero-grid {
+  grid-template-columns: 1fr;
+}
+
+.next-panel {
+  min-height: 10rem;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.action-tile {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: center;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 250, 242, 0.9);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+  text-align: left;
+  backdrop-filter: blur(10px);
+}
+
+body.dark .action-tile {
+  background: rgba(24, 34, 51, 0.88);
+}
+
+.action-tile:hover {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--line));
+  transform: translateY(-1px);
+}
+
+.action-icon {
+  width: 3rem;
+  height: 3rem;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--primary);
+}
+
+.action-icon svg,
+.danger-icon svg {
+  width: 1.35rem;
+  height: 1.35rem;
+  fill: currentColor;
+}
+
+.action-tile strong {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 0.2rem;
+}
+
+.action-tile small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.modal-actions-grid {
+  justify-content: flex-start;
+  margin-bottom: 0.8rem;
+}
+
+.timeline-reset {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--danger);
+  color: #fffaf2;
+  border-color: color-mix(in srgb, var(--danger) 85%, #000);
+}
+
+body.dark .btn-danger {
+  color: #1a0b0b;
+}
+
+.danger-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.note-composer {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.note-composer-actions,
+.note-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.notes-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.note-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  padding: 0.9rem;
+}
+
+.note-card.pinned {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+
+.note-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+  margin-bottom: 0.55rem;
+}
+
+.note-content {
+  white-space: pre-wrap;
+  line-height: 1.55;
+  margin-bottom: 0.8rem;
+}
+
+.note-edit textarea {
+  margin-bottom: 0.75rem;
+}
+
+.empty-state {
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  padding: 1rem;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+}
+
+@media (max-width: 680px) {
+  .quick-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-reset,
+  .note-composer-actions,
+  .note-actions {
+    justify-content: stretch;
+  }
+
+  .timeline-reset .btn,
+  .note-composer-actions .btn,
+  .note-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
