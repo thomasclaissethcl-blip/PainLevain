@@ -254,7 +254,7 @@ const defaultState = {
     roomTemp: "mild",
     totalFlour: 500,
     hydration: 75,
-    starterPercent: 20,
+    starterGrams: 70,
     doughType: "wheat"
   },
   stepState: {},
@@ -347,6 +347,14 @@ function mergeState(saved) {
   merged.version = saved.version || defaultState.version;
   merged.theme = saved.theme || defaultState.theme;
   merged.settings = { ...defaultState.settings, ...(saved.settings || {}) };
+  if (!Number.isFinite(Number(merged.settings.starterGrams))) {
+    const legacyStarter = Number(saved.settings?.starterPercent);
+    if (Number.isFinite(legacyStarter)) {
+      merged.settings.starterGrams = legacyStarter > 40
+        ? legacyStarter
+        : Math.round((Number(merged.settings.totalFlour) || defaultState.settings.totalFlour) * legacyStarter / 100);
+    }
+  }
   merged.stepState = saved.stepState || {};
   merged.notes = saved.notes || "";
   const legacyNotes = typeof saved.notes === "string" ? saved.notes.trim() : "";
@@ -506,7 +514,7 @@ function hydrateSettingsForm() {
   $("#roomTemp").value = state.settings.roomTemp;
   $("#totalFlour").value = state.settings.totalFlour;
   $("#hydration").value = state.settings.hydration;
-  $("#starterPercent").value = state.settings.starterPercent;
+  $("#starterGrams").value = state.settings.starterGrams;
   $("#doughType").value = state.settings.doughType;
 }
 
@@ -517,7 +525,7 @@ function readSettingsForm() {
   state.settings.roomTemp = $("#roomTemp").value;
   state.settings.totalFlour = Number($("#totalFlour").value || 500);
   state.settings.hydration = Number($("#hydration").value || 75);
-  state.settings.starterPercent = Number($("#starterPercent").value || 20);
+  state.settings.starterGrams = Number($("#starterGrams").value || 70);
   state.settings.doughType = $("#doughType").value;
 }
 
@@ -603,13 +611,12 @@ function calcBuild(target, ratio) {
 function calcDough() {
   const flour = Number(state.settings.totalFlour || 500);
   let hydration = Number(state.settings.hydration || 75);
-  let starterPercent = Number(state.settings.starterPercent || 20);
+  const starterGrams = Number(state.settings.starterGrams || 70);
   const doughType = state.settings.doughType;
 
   if (doughType === "gluten-free" && hydration < 85) hydration = 90;
-  if (doughType === "gluten-free" && starterPercent < 15) starterPercent = 20;
 
-  const levain = flour * starterPercent / 100;
+  const levain = Math.max(0, starterGrams);
   const flourInLevain = levain / 2;
   const waterInLevain = levain / 2;
   const totalWaterWanted = flour * hydration / 100;
@@ -617,7 +624,9 @@ function calcDough() {
   const addedFlour = Math.max(0, flour - flourInLevain);
   const salt = flour * 0.02;
   const psyllium = doughType === "gluten-free" ? flour * 0.03 : 0;
-  return { flour, hydration, starterPercent, levain, flourInLevain, waterInLevain, totalWaterWanted, addedWater, addedFlour, salt, psyllium, doughType };
+  const rawDough = levain + addedFlour + addedWater + salt + psyllium;
+  const estimatedBaked = rawDough * 0.86;
+  return { flour, hydration, starterGrams, levain, flourInLevain, waterInLevain, totalWaterWanted, addedWater, addedFlour, salt, psyllium, rawDough, estimatedBaked, doughType };
 }
 
 function renderCalculators() {
@@ -633,7 +642,7 @@ function renderCalculators() {
 
   const dough = calcDough();
   const psylliumText = dough.psyllium ? ` Ajouter aussi environ <strong>${round(dough.psyllium)} g</strong> de psyllium.` : "";
-  $("#doughResult").innerHTML = `Pour <strong>${round(dough.flour)} g</strong> de farine totale, prévoir environ <strong>${round(dough.levain)} g</strong> de levain, <strong>${round(dough.addedWater)} g</strong> d’eau à ajouter, <strong>${round(dough.addedFlour)} g</strong> de farine à ajouter et <strong>${round(dough.salt)} g</strong> de sel.${psylliumText}`;
+  $("#doughResult").innerHTML = `Pour <strong>${round(dough.flour)} g</strong> de farine totale et <strong>${round(dough.levain)} g</strong> de levain actif, ajouter <strong>${round(dough.addedFlour)} g</strong> de farine, <strong>${round(dough.addedWater)} g</strong> d’eau et <strong>${round(dough.salt)} g</strong> de sel.${psylliumText} Le levain apporte déjà <strong>${round(dough.flourInLevain)} g</strong> de farine et <strong>${round(dough.waterInLevain)} g</strong> d’eau. Pâte avant cuisson&nbsp;: environ <strong>${round(dough.rawDough)} g</strong>. Pain cuit estimé&nbsp;: environ <strong>${round(dough.estimatedBaked)} g</strong>.`;
 }
 
 function round(value) {
@@ -1100,7 +1109,7 @@ function bindEvents() {
     $(selector).addEventListener("input", renderCalculators);
   });
 
-  ["#totalFlour", "#hydration", "#starterPercent", "#doughType"].forEach((selector) => {
+  ["#totalFlour", "#hydration", "#starterGrams", "#doughType"].forEach((selector) => {
     $(selector).addEventListener("input", () => {
       readSettingsForm();
       renderCalculators();

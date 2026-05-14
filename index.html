@@ -230,7 +230,7 @@
             </select>
           </label>
           <label>
-            <span>Farine totale du pain</span>
+            <span>Farine totale de la recette, g</span>
             <input id="totalFlour" type="number" min="200" max="1500" step="10" value="500">
           </label>
           <label>
@@ -238,8 +238,8 @@
             <input id="hydration" type="number" min="55" max="110" step="1" value="75">
           </label>
           <label>
-            <span>Levain dans la pâte</span>
-            <input id="starterPercent" type="number" min="5" max="40" step="1" value="20">
+            <span>Levain actif à incorporer, g</span>
+            <input id="starterGrams" type="number" min="20" max="300" step="5" value="70">
           </label>
           <label>
             <span>Type de pâte</span>
@@ -250,7 +250,7 @@
             </select>
           </label>
         </div>
-        <p class="hint">Les durées sont des repères. La température, la vigueur du levain et les farines peuvent accélérer ou ralentir fortement la fermentation.</p>
+        <p class="hint">La farine totale inclut la farine déjà présente dans le levain. Ce n’est pas le poids du pain cuit. Les durées sont des repères. La température, la vigueur du levain et les farines peuvent accélérer ou ralentir fortement la fermentation.</p>
       </div>
       <footer class="modal-footer">
         <button id="saveSettingsBtn" class="btn btn-primary" value="default" type="button">Enregistrer et recalculer</button>
