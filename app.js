@@ -245,16 +245,14 @@ const baseSteps = [
 ];
 
 const defaultState = {
-  version: 1,
+  version: 4,
   theme: "light",
   settings: {
     routineMode: "saturday-evening",
     targetDay: 6,
     targetTime: "19:00",
     roomTemp: "mild",
-    totalFlour: 500,
-    hydration: 75,
-    starterGrams: 70,
+    targetBreadWeight: 500,
     doughType: "wheat"
   },
   stepState: {},
@@ -347,12 +345,13 @@ function mergeState(saved) {
   merged.version = saved.version || defaultState.version;
   merged.theme = saved.theme || defaultState.theme;
   merged.settings = { ...defaultState.settings, ...(saved.settings || {}) };
-  if (!Number.isFinite(Number(merged.settings.starterGrams))) {
-    const legacyStarter = Number(saved.settings?.starterPercent);
-    if (Number.isFinite(legacyStarter)) {
-      merged.settings.starterGrams = legacyStarter > 40
-        ? legacyStarter
-        : Math.round((Number(merged.settings.totalFlour) || defaultState.settings.totalFlour) * legacyStarter / 100);
+  if (!Number.isFinite(Number(merged.settings.targetBreadWeight))) {
+    const legacyFlour = Number(saved.settings?.totalFlour);
+    if (Number.isFinite(legacyFlour) && legacyFlour > 0) {
+      const legacyHydration = Number.isFinite(Number(saved.settings?.hydration)) ? Number(saved.settings.hydration) : 75;
+      merged.settings.targetBreadWeight = Math.round(legacyFlour * (1 + legacyHydration / 100 + 0.02) * 0.86);
+    } else {
+      merged.settings.targetBreadWeight = defaultState.settings.targetBreadWeight;
     }
   }
   merged.stepState = saved.stepState || {};
@@ -512,9 +511,7 @@ function hydrateSettingsForm() {
   $("#targetDay").value = String(state.settings.targetDay);
   $("#targetTime").value = state.settings.targetTime;
   $("#roomTemp").value = state.settings.roomTemp;
-  $("#totalFlour").value = state.settings.totalFlour;
-  $("#hydration").value = state.settings.hydration;
-  $("#starterGrams").value = state.settings.starterGrams;
+  $("#targetBreadWeight").value = state.settings.targetBreadWeight;
   $("#doughType").value = state.settings.doughType;
 }
 
@@ -523,9 +520,7 @@ function readSettingsForm() {
   state.settings.targetDay = Number($("#targetDay").value);
   state.settings.targetTime = $("#targetTime").value || "19:00";
   state.settings.roomTemp = $("#roomTemp").value;
-  state.settings.totalFlour = Number($("#totalFlour").value || 500);
-  state.settings.hydration = Number($("#hydration").value || 75);
-  state.settings.starterGrams = Number($("#starterGrams").value || 70);
+  state.settings.targetBreadWeight = Number($("#targetBreadWeight").value || 500);
   state.settings.doughType = $("#doughType").value;
 }
 
@@ -594,55 +589,67 @@ function renderSummary() {
   $("#nextActionMeta").textContent = delayText;
 }
 
-function calcFeed(seed, ratio) {
-  const water = seed * ratio;
-  const flour = seed * ratio;
-  const total = seed + water + flour;
-  return { seed, water, flour, total };
+function getDoughAssumptions(doughType) {
+  const map = {
+    wheat: { hydration: 75, psylliumPercent: 0, label: "Blé au levain long" },
+    mixed: { hydration: 78, psylliumPercent: 0, label: "Mixte, test de tolérance" },
+    "gluten-free": { hydration: 90, psylliumPercent: 3, label: "Sans gluten, avec psyllium" }
+  };
+  return map[doughType] || map.wheat;
 }
 
-function calcBuild(target, ratio) {
+function calcFeed(target, ratio = 2) {
   const seed = target / (1 + ratio * 2);
   const water = seed * ratio;
   const flour = seed * ratio;
-  return { seed, water, flour, total: seed + water + flour };
+  const total = seed + water + flour;
+  return { seed, water, flour, total, ratio };
+}
+
+function calcBuild(target, ratio = 3) {
+  const seed = target / (1 + ratio * 2);
+  const water = seed * ratio;
+  const flour = seed * ratio;
+  return { seed, water, flour, total: seed + water + flour, ratio };
 }
 
 function calcDough() {
-  const flour = Number(state.settings.totalFlour || 500);
-  let hydration = Number(state.settings.hydration || 75);
-  const starterGrams = Number(state.settings.starterGrams || 70);
+  const targetBreadWeight = Math.max(300, Number(state.settings.targetBreadWeight || 500));
   const doughType = state.settings.doughType;
-
-  if (doughType === "gluten-free" && hydration < 85) hydration = 90;
-
-  const levain = Math.max(0, starterGrams);
+  const assumptions = getDoughAssumptions(doughType);
+  const hydration = assumptions.hydration;
+  const bakeYield = 0.86;
+  const starterPercent = 20;
+  const saltPercent = 2;
+  const psylliumPercent = assumptions.psylliumPercent;
+  const flour = targetBreadWeight / (bakeYield * (1 + hydration / 100 + saltPercent / 100 + psylliumPercent / 100));
+  const levain = flour * starterPercent / 100;
+  const levainBuildTarget = levain + Math.max(10, levain * 0.15);
+  const build = calcBuild(levainBuildTarget, 3);
+  const conservationTarget = Math.max(40, build.seed * 4);
+  const feed = calcFeed(conservationTarget, 2);
   const flourInLevain = levain / 2;
   const waterInLevain = levain / 2;
   const totalWaterWanted = flour * hydration / 100;
   const addedWater = Math.max(0, totalWaterWanted - waterInLevain);
   const addedFlour = Math.max(0, flour - flourInLevain);
-  const salt = flour * 0.02;
-  const psyllium = doughType === "gluten-free" ? flour * 0.03 : 0;
-  const rawDough = levain + addedFlour + addedWater + salt + psyllium;
-  const estimatedBaked = rawDough * 0.86;
-  return { flour, hydration, starterGrams, levain, flourInLevain, waterInLevain, totalWaterWanted, addedWater, addedFlour, salt, psyllium, rawDough, estimatedBaked, doughType };
+  const salt = flour * saltPercent / 100;
+  const psyllium = flour * psylliumPercent / 100;
+  const rawDough = flour + totalWaterWanted + salt + psyllium;
+  const estimatedBaked = rawDough * bakeYield;
+  return { targetBreadWeight, flour, hydration, starterPercent, saltPercent, psylliumPercent, bakeYield, levain, levainBuildTarget, build, feed, conservationTarget, flourInLevain, waterInLevain, totalWaterWanted, addedWater, addedFlour, salt, psyllium, rawDough, estimatedBaked, doughType, doughTypeLabel: assumptions.label };
 }
 
 function renderCalculators() {
-  const feedSeed = Number($("#feedSeed")?.value || 20);
-  const feedRatio = Number($("#feedRatio")?.value || 2);
-  const feed = calcFeed(feedSeed, feedRatio);
-  $("#feedResult").innerHTML = `Garder <strong>${round(feed.seed)} g</strong> de levain, ajouter <strong>${round(feed.water)} g</strong> d’eau et <strong>${round(feed.flour)} g</strong> de farine. Total obtenu&nbsp;: <strong>${round(feed.total)} g</strong>.`;
-
-  const buildTarget = Number($("#buildTarget")?.value || 150);
-  const buildRatio = Number($("#buildRatio")?.value || 3);
-  const build = calcBuild(buildTarget, buildRatio);
-  $("#buildResult").innerHTML = `Pour environ <strong>${round(build.total)} g</strong> de levain actif&nbsp;: <strong>${round(build.seed)} g</strong> de levain mère, <strong>${round(build.water)} g</strong> d’eau, <strong>${round(build.flour)} g</strong> de farine.`;
-
   const dough = calcDough();
+  const feed = dough.feed;
+  const build = dough.build;
+  $("#feedResult").innerHTML = `Pour garder une souche suffisante, viser environ <strong>${round(dough.conservationTarget)} g</strong> au frigo. Rafraîchi conseillé en 1:2:2&nbsp;: garder <strong>${round(feed.seed)} g</strong> de levain, ajouter <strong>${round(feed.water)} g</strong> d’eau et <strong>${round(feed.flour)} g</strong> de farine.`;
+
+  $("#buildResult").innerHTML = `Pour incorporer <strong>${round(dough.levain)} g</strong> de levain actif dans la pâte, préparer environ <strong>${round(dough.levainBuildTarget)} g</strong> avec marge. Construction conseillée en 1:3:3&nbsp;: <strong>${round(build.seed)} g</strong> de levain mère, <strong>${round(build.water)} g</strong> d’eau, <strong>${round(build.flour)} g</strong> de farine.`;
+
   const psylliumText = dough.psyllium ? ` Ajouter aussi environ <strong>${round(dough.psyllium)} g</strong> de psyllium.` : "";
-  $("#doughResult").innerHTML = `Pour <strong>${round(dough.flour)} g</strong> de farine totale et <strong>${round(dough.levain)} g</strong> de levain actif, ajouter <strong>${round(dough.addedFlour)} g</strong> de farine, <strong>${round(dough.addedWater)} g</strong> d’eau et <strong>${round(dough.salt)} g</strong> de sel.${psylliumText} Le levain apporte déjà <strong>${round(dough.flourInLevain)} g</strong> de farine et <strong>${round(dough.waterInLevain)} g</strong> d’eau. Pâte avant cuisson&nbsp;: environ <strong>${round(dough.rawDough)} g</strong>. Pain cuit estimé&nbsp;: environ <strong>${round(dough.estimatedBaked)} g</strong>.`;
+  $("#doughResult").innerHTML = `Pour viser un pain cuit d’environ <strong>${round(dough.targetBreadWeight)} g</strong>, préparer une pâte d’environ <strong>${round(dough.rawDough)} g</strong>. Utiliser <strong>${round(dough.levain)} g</strong> de levain actif, puis ajouter <strong>${round(dough.addedFlour)} g</strong> de farine, <strong>${round(dough.addedWater)} g</strong> d’eau et <strong>${round(dough.salt)} g</strong> de sel.${psylliumText} Le calcul suppose une hydratation de <strong>${round(dough.hydration)} %</strong> et une perte de cuisson d’environ <strong>${round((1 - dough.bakeYield) * 100)} %</strong>.`;
 }
 
 function round(value) {
@@ -678,7 +685,7 @@ function renderQuickTiles() {
   const day = dayLabels[Number(state.settings.targetDay)] || "jour à définir";
   const settingsTile = $("#settingsTileStatus");
   if (settingsTile) {
-    settingsTile.textContent = `${routineLabels[state.settings.routineMode] || "Routine"}. ${day} à ${state.settings.targetTime}`;
+    settingsTile.textContent = `${routineLabels[state.settings.routineMode] || "Routine"}. ${day} à ${state.settings.targetTime}. Pain visé : ${round(state.settings.targetBreadWeight || 500)} g`;
   }
 }
 
@@ -734,7 +741,8 @@ function renderModalChecklist(step, saved) {
 }
 
 function renderModalTracking(step, saved) {
-  const quantities = { ...(step.defaultQuantities || {}), ...(saved.quantities || {}) };
+  const recommendedQuantities = getRecommendedStepQuantities(step.id) || (step.defaultQuantities || {});
+  const quantities = { ...recommendedQuantities, ...(saved.quantities || {}) };
   const quantityFields = Object.keys(quantities).map((key) => {
     const label = quantityLabel(key);
     return `<label><span>${label}</span><input type="number" step="1" data-quantity="${key}" value="${escapeHtml(quantities[key])}"></label>`;
@@ -789,6 +797,35 @@ function renderModalTracking(step, saved) {
   });
 }
 
+function getRecommendedStepQuantities(stepId) {
+  const dough = calcDough();
+  const map = {
+    "maintenance-feed": {
+      levain: round(dough.feed.seed),
+      water: round(dough.feed.water),
+      flour: round(dough.feed.flour)
+    },
+    "build-starter": {
+      levain: round(dough.build.seed),
+      water: round(dough.build.water),
+      flour: round(dough.build.flour)
+    },
+    "mix-dough": {
+      flour: round(dough.addedFlour),
+      water: round(dough.addedWater),
+      levain: round(dough.levain),
+      salt: round(dough.salt),
+      ...(dough.psyllium ? { psyllium: round(dough.psyllium) } : {})
+    },
+    "save-starter": {
+      levain: round(dough.feed.seed),
+      water: round(dough.feed.water),
+      flour: round(dough.feed.flour)
+    }
+  };
+  return map[stepId] || null;
+}
+
 function renderModalVariants(step) {
   const fodmapAdvice = getFodmapAdvice(step.id);
   $("#tab-variants").innerHTML = `
@@ -818,7 +855,8 @@ function quantityLabel(key) {
     levain: "Levain, g",
     water: "Eau, g",
     flour: "Farine, g",
-    salt: "Sel, g"
+    salt: "Sel, g",
+    psyllium: "Psyllium, g"
   };
   return labels[key] || key;
 }
@@ -1105,14 +1143,11 @@ function bindEvents() {
   $("#addNoteBtn").addEventListener("click", addJournalNote);
   $("#notesList").addEventListener("click", (event) => handleNoteAction(event));
 
-  ["#feedSeed", "#feedRatio", "#buildTarget", "#buildRatio"].forEach((selector) => {
-    $(selector).addEventListener("input", renderCalculators);
-  });
-
-  ["#totalFlour", "#hydration", "#starterGrams", "#doughType"].forEach((selector) => {
+  ["#targetBreadWeight", "#doughType"].forEach((selector) => {
     $(selector).addEventListener("input", () => {
       readSettingsForm();
       renderCalculators();
+      renderQuickTiles();
     });
   });
 
