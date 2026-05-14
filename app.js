@@ -107,21 +107,22 @@ const baseSteps = [
     order: 5,
     title: "Fermentation en vrac",
     short: "La pâte développe arômes, gaz et structure.",
-    duration: "4 à 7 h",
+    duration: "4 à 7 h, avec 1 à 2 rabats au début",
     defaultOffsetHours: -10.5,
     guide: {
       principle: "C’est la fermentation principale. Les micro-organismes du levain produisent du gaz et acidifient progressivement la pâte.",
-      what: "Laisser la pâte dans un saladier ou un bac. Faire éventuellement des rabats toutes les 30 à 60 minutes au début.",
-      why: "Cette phase conditionne le volume, le goût et une partie de la digestibilité. Pour une approche low FODMAP, une fermentation suffisamment longue est un levier utile, sans garantie individuelle.",
-      how: "Surveiller davantage l’aspect que l’horloge. La pâte doit gonfler, devenir plus aérée et montrer des bulles. Éviter de la laisser s’effondrer.",
-      variants: "S’il fait chaud, raccourcir. S’il fait frais, allonger. Pour une pâte sans gluten, les rabats sont souvent moins utiles, car il n’y a pas de réseau de gluten à renforcer."
+      what: "Laisser la pâte dans un saladier ou un bac. Faire un premier rabat doux après 30 à 45 minutes. Faire un second rabat seulement si la pâte manque de tenue. Ensuite, ne plus manipuler la pâte jusqu’au façonnage.",
+      why: "Cette phase conditionne le volume, le goût et une partie de la digestibilité. Les rabats servent à donner de la tenue au début, mais des manipulations répétées peuvent dégazer la pâte et fatiguer sa structure.",
+      how: "Surveiller davantage l’aspect que l’horloge. La pâte doit gonfler, devenir plus aérée et montrer des bulles. Les rabats doivent rester doux, espacés et limités au début de la fermentation en vrac. Éviter de laisser la pâte s’effondrer.",
+      variants: "S’il fait chaud, raccourcir. S’il fait frais, allonger. Pour une pâte sans gluten ou très pauvre en gluten, ne cherchez pas à renforcer un réseau de gluten inexistant. Mélanger, hydrater, mettre en moule et laisser fermenter sont souvent plus adaptés."
     },
     checklist: [
       "Couvrir le récipient.",
       "Noter l’heure de début.",
-      "Faire un premier rabat si la pâte s’y prête.",
-      "Observer le volume et les bulles.",
-      "Noter les signes de fermentation.",
+      "Faire un premier rabat doux après 30 à 45 minutes.",
+      "Faire un second rabat uniquement si la pâte manque de tenue.",
+      "Laisser ensuite fermenter sans manipulation jusqu’au façonnage.",
+      "Observer le volume, les bulles et la tenue.",
       "Arrêter avant que la pâte ne retombe."
     ],
     defaultQuantities: {}
@@ -158,7 +159,7 @@ const baseSteps = [
     defaultOffsetHours: -4,
     guide: {
       principle: "L’apprêt est la dernière fermentation avant cuisson. Il termine le développement du volume.",
-      what: "Laisser le pain façonné pousser à température ambiante, ou le placer au froid pour une pousse lente.",
+      what: "Laisser le pain façonné pousser à température ambiante, ou le placer au froid pour une pousse lente. Ne plus faire de rabat à ce stade.",
       why: "Un apprêt trop court donne un pain dense. Un apprêt trop long donne une pâte fragile qui s’affaisse.",
       how: "Faire le test du doigt sur une pâte de blé. Une légère empreinte doit revenir lentement. Pour une pâte sans gluten, surveiller surtout le gonflement visuel.",
       variants: "L’apprêt au frigo est pratique pour cuire le dimanche matin et il donne souvent plus de marge d’organisation."
@@ -168,6 +169,7 @@ const baseSteps = [
       "Choisir température ambiante ou frigo.",
       "Noter l’heure de début.",
       "Observer le volume.",
+      "Ne plus manipuler ni rabattre la pâte.",
       "Préchauffer le four avant la fin de l’apprêt."
     ],
     defaultQuantities: {}
@@ -245,7 +247,7 @@ const baseSteps = [
 ];
 
 const defaultState = {
-  version: 4,
+  version: 5,
   theme: "light",
   settings: {
     routineMode: "saturday-evening",
@@ -749,6 +751,7 @@ function renderModalTracking(step, saved) {
   }).join("");
 
   const planned = saved.plannedAt || step.plannedAt;
+  const bulkHint = step.id === "bulk-fermentation" ? renderBulkHandlingHint(saved, planned) : "";
   $("#tab-tracking").innerHTML = `
     <div class="tracking-grid">
       <label><span>Date et heure prévues</span><input id="modalPlannedAt" type="datetime-local" value="${formatInputDateTime(planned)}"></label>
@@ -761,6 +764,7 @@ function renderModalTracking(step, saved) {
       <button type="button" class="btn btn-secondary" id="markDoneBtn">Marquer terminé maintenant</button>
       <button type="button" class="btn btn-ghost" id="clearStepBtn">Effacer cette étape</button>
     </div>
+    ${bulkHint}
     <h3>Quantités</h3>
     <div class="tracking-grid">${quantityFields || "<p class='muted'>Aucune quantité spécifique à noter pour cette étape.</p>"}</div>
     <h3>Notes d’étape</h3>
@@ -795,6 +799,18 @@ function renderModalTracking(step, saved) {
       showToast("Étape effacée.");
     });
   });
+}
+
+
+function renderBulkHandlingHint(saved, planned) {
+  const reference = saved.startedAt || planned;
+  const base = reference ? new Date(reference) : null;
+  if (!base || Number.isNaN(base.getTime())) {
+    return `<article class="guide-section handling-note"><h3>Repères de rabats</h3><p>Planifiez 1 rabat doux après 30 à 45 minutes de fermentation en vrac. Faites un second rabat seulement si la pâte manque clairement de tenue. Ensuite, laissez fermenter sans manipulation jusqu’au façonnage.</p></article>`;
+  }
+  const firstFold = new Date(base.getTime() + 45 * 60 * 1000);
+  const secondFold = new Date(base.getTime() + 90 * 60 * 1000);
+  return `<article class="guide-section handling-note"><h3>Repères de rabats</h3><p>Premier rabat doux conseillé vers <strong>${escapeHtml(formatDateTime(firstFold))}</strong>. Second rabat facultatif vers <strong>${escapeHtml(formatDateTime(secondFold))}</strong> seulement si la pâte manque de tenue. Ensuite, repos sans manipulation jusqu’au façonnage. Aucun rabat pendant l’apprêt final.</p></article>`;
 }
 
 function getRecommendedStepQuantities(stepId) {
@@ -840,7 +856,7 @@ function getFodmapAdvice(stepId) {
     "maintenance-feed": "Le seigle fermente facilement, mais il est riche en fructanes. Si vous utilisez très peu de levain mère dans le pain final, l’impact peut rester limité, à tester selon tolérance.",
     "build-starter": "Une fermentation longue peut réduire une partie des fructanes, mais ne transforme pas automatiquement un pain riche en blé ou en seigle en pain toléré par tous.",
     "mix-dough": "Pour un essai prudent, notez précisément les farines, la quantité consommée et la tolérance. Les pains sans gluten demandent souvent psyllium et hydratation plus élevée.",
-    "bulk-fermentation": "C’est l’étape la plus intéressante pour travailler la digestibilité. Ne cherchez pas seulement le volume, notez aussi la durée réelle et la température.",
+    "bulk-fermentation": "C’est l’étape la plus intéressante pour travailler la digestibilité. Limitez les rabats au début, puis notez surtout la durée réelle, la température, le volume et la tenue de la pâte.",
     shape: "Le façonnage ne change pas directement la teneur en FODMAP, mais une pâte bien structurée supporte mieux les fermentations longues.",
     proof: "L’apprêt au froid est pratique et peut prolonger la fermentation sans bloquer votre journée. Surveillez toutefois le risque de sur-fermentation.",
     bake: "La cuisson ne supprime pas les FODMAP. Elle stabilise le pain. La tolérance dépend surtout des ingrédients, de la fermentation et de la portion.",
@@ -923,7 +939,7 @@ function suggestNextTime(stepId, completedAt) {
     storage: 96,
     "maintenance-feed": 72,
     "build-starter": 10 * adjustment,
-    "mix-dough": 0.5,
+    "mix-dough": 0,
     "bulk-fermentation": 5 * adjustment,
     shape: 0.4,
     proof: state.settings.routineMode === "sunday-morning" ? 12 : 3 * adjustment,

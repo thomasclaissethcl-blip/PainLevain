@@ -15,6 +15,7 @@ Cette web app est une version autonome, sans dépendance externe, pensée pour G
 
 - Timeline complète du cycle hebdomadaire.
 - Étapes cliquables avec guide, checklist, suivi et variantes.
+- Fermentation en vrac corrigée avec rabats limités : un premier rabat doux, un second seulement si nécessaire, puis repos sans manipulation.
 - Calculs de rafraîchi, construction de levain et pâte principale à partir du poids du pain cuit visé.
 - Planning recalculé selon le jour, l’heure, la température et le type de routine.
 - Saisie des heures prévues, de début réel et de fin réelle.
@@ -42,4 +43,4 @@ L’application garde les données sur l’appareil. Elle utilise IndexedDB en p
 
 ## Limites
 
-Les quantités sont calculées à partir de repères internes : perte de cuisson estimée à 14 %, levain à 20 % de la farine totale, sel à 2 %, hydratation adaptée au type de pâte. Cette version ne synchronise pas les données entre appareils. Elle ne remplace pas un avis médical ou diététique. Les repères low FODMAP servent à documenter les essais, pas à garantir une tolérance individuelle.
+Les quantités sont calculées à partir de repères internes : perte de cuisson estimée à 14 %, levain à 20 % de la farine totale, sel à 2 %, hydratation adaptée au type de pâte. Cette version ne synchronise pas les données entre appareils et ne programme pas encore de notifications système. Elle ne remplace pas un avis médical ou diététique. Les repères low FODMAP servent à documenter les essais, pas à garantir une tolérance individuelle.
