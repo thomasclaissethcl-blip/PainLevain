@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f2937">
+  <meta name="description" content="Routine de suivi pour levain, pain au levain et pain low FODMAP.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>Routine levain</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Aller au contenu</a>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Tableau de bord</p>
+      <h1>Routine levain et pain low FODMAP</h1>
+      <p class="subtitle">Suivre, comprendre, calculer et ajuster chaque étape de la semaine.</p>
+    </div>
+    <div class="header-actions">
+      <button id="installBtn" class="btn btn-secondary" hidden>Installer l’app</button>
+      <button id="themeBtn" class="btn btn-ghost" type="button">Mode sombre</button>
+    </div>
+  </header>
+
+  <main id="main" class="app-shell">
+    <section class="hero-grid" aria-label="Synthèse de la routine">
+      <article class="panel next-panel">
+        <div class="panel-heading">
+          <p class="eyebrow">Prochaine action</p>
+          <button id="resetTodayBtn" class="btn btn-small btn-ghost" type="button">Recalculer</button>
+        </div>
+        <h2 id="nextActionTitle">Chargement</h2>
+        <p id="nextActionMeta" class="muted">Analyse du planning en cours.</p>
+        <div class="progress-wrap" aria-label="Progression hebdomadaire">
+          <div id="progressBar" class="progress-bar" style="width: 0%"></div>
+        </div>
+        <p id="progressText" class="progress-text">0 étape terminée</p>
+      </article>
+
+      <article class="panel storage-panel">
+        <p class="eyebrow">Mémoire locale</p>
+        <h2 id="storageStatus">Stockage local</h2>
+        <p id="storageDetails" class="muted">Les données restent sur cet appareil.</p>
+        <div class="storage-actions">
+          <button id="persistBtn" class="btn btn-secondary" type="button">Renforcer la persistance</button>
+          <button id="exportBtn" class="btn btn-secondary" type="button">Exporter</button>
+          <label class="btn btn-secondary file-label" for="importFile">Importer</label>
+          <input id="importFile" class="sr-only" type="file" accept="application/json">
+        </div>
+      </article>
+    </section>
+
+    <section class="panel settings-panel" aria-labelledby="settingsTitle">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Paramètres de la semaine</p>
+          <h2 id="settingsTitle">Rythme souhaité</h2>
+        </div>
+        <button id="saveSettingsBtn" class="btn btn-primary" type="button">Enregistrer et recalculer</button>
+      </div>
+
+      <div class="form-grid">
+        <label>
+          <span>Routine principale</span>
+          <select id="routineMode">
+            <option value="saturday-evening">Cuisson samedi soir</option>
+            <option value="sunday-morning">Préparation samedi, cuisson dimanche matin</option>
+            <option value="manual">Planning libre</option>
+          </select>
+        </label>
+        <label>
+          <span>Jour de cuisson visé</span>
+          <select id="targetDay">
+            <option value="5">Vendredi</option>
+            <option value="6">Samedi</option>
+            <option value="0">Dimanche</option>
+            <option value="1">Lundi</option>
+          </select>
+        </label>
+        <label>
+          <span>Heure de cuisson visée</span>
+          <input id="targetTime" type="time" value="19:00">
+        </label>
+        <label>
+          <span>Température de la pièce</span>
+          <select id="roomTemp">
+            <option value="cool">Frais, moins de 21 °C</option>
+            <option value="mild" selected>Tempéré, 21 à 24 °C</option>
+            <option value="warm">Chaud, plus de 24 °C</option>
+          </select>
+        </label>
+        <label>
+          <span>Farine totale du pain</span>
+          <input id="totalFlour" type="number" min="200" max="1500" step="10" value="500">
+        </label>
+        <label>
+          <span>Hydratation cible</span>
+          <input id="hydration" type="number" min="55" max="110" step="1" value="75">
+        </label>
+        <label>
+          <span>Levain dans la pâte</span>
+          <input id="starterPercent" type="number" min="5" max="40" step="1" value="20">
+        </label>
+        <label>
+          <span>Type de pâte</span>
+          <select id="doughType">
+            <option value="wheat">Blé au levain long</option>
+            <option value="gluten-free">Sans gluten, avec psyllium</option>
+            <option value="mixed">Mixte, test de tolérance</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint">Les durées sont des repères. La température, la vigueur du levain et les farines peuvent accélérer ou ralentir fortement la fermentation.</p>
+    </section>
+
+    <section class="layout-two">
+      <section class="panel" aria-labelledby="timelineTitle">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Timeline</p>
+            <h2 id="timelineTitle">Cycle de vie hebdomadaire</h2>
+          </div>
+          <button id="clearWeekBtn" class="btn btn-ghost" type="button">Réinitialiser la semaine</button>
+        </div>
+        <div id="timeline" class="timeline" aria-live="polite"></div>
+      </section>
+
+      <aside class="panel calculators" aria-labelledby="calcTitle">
+        <p class="eyebrow">Calculs pratiques</p>
+        <h2 id="calcTitle">Quantités et repères</h2>
+
+        <div class="calc-block">
+          <h3>Nourrir le levain</h3>
+          <div class="calc-grid">
+            <label><span>Levain gardé</span><input id="feedSeed" type="number" min="1" step="1" value="20"></label>
+            <label><span>Ratio</span><select id="feedRatio"><option value="1">1:1:1</option><option value="2" selected>1:2:2</option><option value="3">1:3:3</option><option value="4">1:4:4</option></select></label>
+          </div>
+          <p id="feedResult" class="result-box"></p>
+        </div>
+
+        <div class="calc-block">
+          <h3>Construire le levain</h3>
+          <div class="calc-grid">
+            <label><span>Levain final voulu</span><input id="buildTarget" type="number" min="30" step="5" value="150"></label>
+            <label><span>Ratio</span><select id="buildRatio"><option value="2">1:2:2</option><option value="3" selected>1:3:3</option><option value="4">1:4:4</option><option value="5">1:5:5</option></select></label>
+          </div>
+          <p id="buildResult" class="result-box"></p>
+        </div>
+
+        <div class="calc-block">
+          <h3>Pâte principale</h3>
+          <p id="doughResult" class="result-box"></p>
+        </div>
+      </aside>
+    </section>
+
+    <section class="panel notes-panel" aria-labelledby="notesTitle">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">Journal</p>
+          <h2 id="notesTitle">Observations et tolérance</h2>
+        </div>
+        <button id="saveNotesBtn" class="btn btn-secondary" type="button">Enregistrer les notes</button>
+      </div>
+      <textarea id="globalNotes" rows="7" placeholder="Exemple : odeur du levain, température, durée réelle, texture, goût, tolérance digestive, quantité consommée."></textarea>
+    </section>
+  </main>
+
+  <dialog id="stepModal" class="modal">
+    <form method="dialog" class="modal-card" id="modalForm">
+      <header class="modal-header">
+        <div>
+          <p id="modalStage" class="eyebrow">Étape</p>
+          <h2 id="modalTitle">Titre</h2>
+          <p id="modalMeta" class="muted"></p>
+        </div>
+        <button class="icon-btn" value="cancel" aria-label="Fermer" type="submit">×</button>
+      </header>
+      <div class="modal-body">
+        <nav class="tabs" aria-label="Sections du guide">
+          <button type="button" class="tab active" data-tab="guide">Guide</button>
+          <button type="button" class="tab" data-tab="checklist">Checklist</button>
+          <button type="button" class="tab" data-tab="tracking">Suivi</button>
+          <button type="button" class="tab" data-tab="variants">Variantes</button>
+        </nav>
+
+        <section id="tab-guide" class="tab-panel active"></section>
+        <section id="tab-checklist" class="tab-panel"></section>
+        <section id="tab-tracking" class="tab-panel"></section>
+        <section id="tab-variants" class="tab-panel"></section>
+      </div>
+      <footer class="modal-footer">
+        <button id="modalSaveBtn" class="btn btn-primary" value="default" type="button">Enregistrer</button>
+        <button class="btn btn-ghost" value="cancel" type="submit">Fermer</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js" defer></script>
+</body>
+</html>
